@@ -23,16 +23,34 @@ from src.config.settings import APP_CSS
 st.markdown(f"<style>{APP_CSS}</style>", unsafe_allow_html=True)
 
 # ── Veri Yükleme ──────────────────────────────────────────────────────────────
-from src.services.data_loader import load_data
-df = load_data()
-all_months   = sorted(df['Ay_str'].dropna().unique().tolist())
-month_labels = {m: pd.to_datetime(m).strftime('%b %Y') for m in all_months}
+from src.services.data_loader import load_data_from_upload
 
-# ── Sidebar Filtreleri ────────────────────────────────────────────────────────
+# Sidebar'da upload widget'ı — tüm filtrelerden önce
 with st.sidebar:
     st.markdown("## ✈️ Flight Revenue")
     st.markdown("**Intelligence Dashboard v2.0**")
     st.markdown("---")
+    st.markdown("### 📂 Veri Dosyası")
+    uploaded_file = st.file_uploader(
+        "Flight Sale Report CSV",
+        type=["csv"],
+        help="Türkçe karakter destekli UTF-8 veya UTF-8-BOM (utf-8-sig) CSV yükleyin.",
+    )
+
+if uploaded_file is None:
+    st.markdown("## ✈️ Flight Revenue Intelligence Dashboard")
+    st.info(
+        "**Başlamak için sol panelden CSV dosyanızı yükleyin.**\n\n"
+        "Beklenen dosya: `Flight Sale Report.csv`"
+    )
+    st.stop()   # dosya yüklenmeden dashboard çalışmasın
+
+df = load_data_from_upload(uploaded_file.read())
+all_months   = sorted(df['Ay_str'].dropna().unique().tolist())
+month_labels = {m: pd.to_datetime(m).strftime('%b %Y') for m in all_months}
+
+# ── Sidebar Filtreleri (geri kalanı) ────────────────────────────────────────
+with st.sidebar:
     st.markdown("### 📅 Dönem")
     c1s, c2s = st.columns(2)
     with c1s:

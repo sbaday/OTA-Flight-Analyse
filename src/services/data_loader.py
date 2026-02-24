@@ -1,8 +1,13 @@
 """
 Veri yükleme servisi.
 Streamlit @st.cache_data ile sarmalanmıştır; data IO bu katmanda kalır.
+
+İki giriş noktası:
+  - load_data_from_upload(file_bytes)  → st.file_uploader ile
+  - load_data()                        → local dev / fallback
 """
 
+import io
 import re
 import pandas as pd
 import numpy as np
@@ -36,28 +41,37 @@ def _parse_date(s) -> pd.Timestamp:
     return pd.NaT
 
 
-@st.cache_data
-def load_data() -> pd.DataFrame:
+def _build_df(source) -> pd.DataFrame:
     """
-    CSV'yi yükler, sayısal sütunları temizler, tarih ve türetilmiş alanları ekler.
-    Streamlit Cloud'da 'Flight Sale Report.csv' (repo kökü) kullanılır;
-    local dev'de fallback path devreye girer.
+    CSV kaynağını (path str veya BytesIO) parse edip temiz DataFrame döndürür.
+    Tüm temizleme mantığı burada — iki loader aynı kodu kullanır.
     """
-    path = get_csv_path()
-    df = pd.read_csv(path, encoding='utf-8-sig', sep=None, engine='python')
+    df = pd.read_csv(source, encoding='utf-8-sig', sep=None, engine='python')
 
-    # Sayısal sütunlar
     for col in _NUMERIC_COLS:
         if col in df.columns:
             df[col] = df[col].apply(_to_num)
 
-    # Tarih
     df['Satış Tarihi'] = df['Satış Tarihi'].apply(_parse_date)
     df['Ay_str'] = df['Satış Tarihi'].dt.strftime('%Y-%m')
     df['Yıl']    = df['Satış Tarihi'].dt.year
     df['Ay_No']  = df['Satış Tarihi'].dt.month
 
-    # Türetilmiş gelir sütunu
     df['Gerçek Gelir'] = df['Hizmet Tutarı'].fillna(0) + df['Ek-Servis'].fillna(0)
-
     return df
+
+
+@st.cache_data(show_spinner="📂 Veri yükleniyor…")
+def load_data_from_upload(file_bytes: bytes) -> pd.DataFrame:
+    """
+    st.file_uploader'dan gelen ham byte'ları parse eder.
+    file_bytes hashable olduğu için cache düzgün çalışır —
+    aynı dosya tekrar yüklenmez.
+    """
+    return _build_df(io.BytesIO(file_bytes))
+
+
+@st.cache_data
+def load_data() -> pd.DataFrame:
+    """Local dev / CI fallback: disk yolundan yükler."""
+    return _build_df(get_csv_path())

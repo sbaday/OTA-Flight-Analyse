@@ -101,7 +101,6 @@ def render_tab2(fdf, df, _py, kpis, py_kpis, yoy,
         ut['Gelir/PNR'] = ut['Gelir']  / ut['PNR'].replace(0,np.nan)
 
         # 3 ayrı subplot — farklı ölçekler aynı eksende görüntülenemez
-        from plotly.subplots import make_subplots
         fig_ut = make_subplots(rows=1, cols=3,
             subplot_titles=["Gelir/PNR (₺)", "Hizmet %", "Ort. Bilet (₺)"])
         colors = [ACCENT[i % len(ACCENT)] for i in range(len(ut))]

@@ -1,0 +1,2 @@
+# Geliştirici Bağımlılıkları (üretim ortamına dahil etme)
+pytest>=8.0

@@ -1,0 +1,15 @@
+[theme]
+# The main theme color of your app.
+primaryColor = "#F39C12"
+
+# The background color of your app.
+backgroundColor = "#FFFFFF"
+
+# The secondary background color of your app.
+secondaryBackgroundColor = "#F0F0F0"
+
+# The text color of your app.
+textColor = "#333333"
+
+# The font to use for your app.
+font = "sans serif"

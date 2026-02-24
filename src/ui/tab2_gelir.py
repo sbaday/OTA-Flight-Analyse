@@ -75,13 +75,16 @@ def render_tab2(fdf, df, _py, kpis, py_kpis, yoy,
         ).reset_index()
         hv['Svc%']      = hv['Hizmet'] / hv['Brut'].replace(0,np.nan) * 100
         hv['Gelir/PNR'] = hv['Gelir']  / hv['PNR'].replace(0,np.nan)
-        hv_top = hv.sort_values('Svc%', ascending=False).head(top_n)
+        hv_top = hv.sort_values('Svc%', ascending=True).head(top_n)  # ascending for horizontal
+        # .values kullan — [::-1] sonrası index uyumsuzluğunu önler
+        y_vals   = hv_top['Havayolu'].str[:22].values
+        x_vals   = hv_top['Svc%'].values
+        txt_vals = [f"{v:.2f}%" for v in x_vals]
+        cmax     = float(hv['Svc%'].quantile(0.9)) if len(hv) > 1 else 20.0
         fig_hv = go.Figure(go.Bar(
-            y=hv_top['Havayolu'].str[:22][::-1], x=hv_top['Svc%'][::-1], orientation='h',
-            marker=dict(color=hv_top['Svc%'][::-1], colorscale='RdYlGn',
-                        cmin=0, cmax=hv['Svc%'].quantile(0.9)),
-            text=[f"{v:.2f}%" for v in hv_top['Svc%'][::-1]],
-            textposition='inside', textfont=dict(size=10)))
+            y=y_vals, x=x_vals, orientation='h',
+            marker=dict(color=x_vals, colorscale='RdYlGn', cmin=0, cmax=cmax),
+            text=txt_vals, textposition='inside', textfont=dict(size=10)))
         apply_layout(fig_hv, f"Top {top_n} Havayolu — Hizmet %",
                      height=max(320, top_n*27), showlegend=False)
         st.plotly_chart(fig_hv, use_container_width=True)
@@ -96,15 +99,30 @@ def render_tab2(fdf, df, _py, kpis, py_kpis, yoy,
         ).reset_index()
         ut['Svc%']      = ut['Hizmet'] / ut['Brut'].replace(0,np.nan) * 100
         ut['Gelir/PNR'] = ut['Gelir']  / ut['PNR'].replace(0,np.nan)
-        fig_ut = go.Figure()
+
+        # 3 ayrı subplot — farklı ölçekler aynı eksende görüntülenemez
+        from plotly.subplots import make_subplots
+        fig_ut = make_subplots(rows=1, cols=3,
+            subplot_titles=["Gelir/PNR (₺)", "Hizmet %", "Ort. Bilet (₺)"])
+        colors = [ACCENT[i % len(ACCENT)] for i in range(len(ut))]
         for i, row in ut.iterrows():
-            fig_ut.add_trace(go.Bar(
-                name=str(row['Uçuş Tipi']),
-                x=['Gelir/PNR (₺)','Hizmet%','Ort.Bilet (₺)'],
-                y=[row['Gelir/PNR'], row['Svc%'], row['Bilet']],
-                marker_color=ACCENT[i % len(ACCENT)]))
-        apply_layout(fig_ut, "Uçuş Tipi Karşılaştırması", barmode='group', height=320)
+            tip = str(row['Uçuş Tipi'])[:16]
+            c   = colors[i % len(colors)]
+            fig_ut.add_trace(go.Bar(name=tip, x=[tip], y=[row['Gelir/PNR']],
+                marker_color=c, showlegend=(i==0)), row=1, col=1)
+            fig_ut.add_trace(go.Bar(name=tip, x=[tip], y=[row['Svc%']],
+                marker_color=c, showlegend=False), row=1, col=2)
+            fig_ut.add_trace(go.Bar(name=tip, x=[tip], y=[row['Bilet']],
+                marker_color=c, showlegend=False), row=1, col=3)
+        fig_ut.update_layout(paper_bgcolor=PAPER_BG, plot_bgcolor=PLOT_BG,
+            font=dict(color=FONT_COL, family="Inter"), height=320,
+            margin=dict(l=10,r=10,t=50,b=10), barmode='group',
+            legend=dict(bgcolor="rgba(0,0,0,0)"))
+        for j in range(1, 4):
+            fig_ut.update_xaxes(gridcolor=GRID_COL, row=1, col=j)
+            fig_ut.update_yaxes(gridcolor=GRID_COL, row=1, col=j)
         st.plotly_chart(fig_ut, use_container_width=True)
+
 
     st.markdown("---")
     section_title("🏢 Firma Bazlı Karlılık Tablosu")

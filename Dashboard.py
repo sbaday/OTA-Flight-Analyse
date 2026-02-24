@@ -130,7 +130,8 @@ from src.ui.tab7_marj    import render_tab7
 with tab1:
     render_tab1(fdf, df, _py, kpis, py_kpis, yoy,
                 sel_airlines, sel_flight, sel_firma,
-                month_labels, all_months, py_s, py_e)
+                month_labels, all_months, py_s, py_e,
+                start_month, end_month)
 with tab2:
     render_tab2(fdf, df, _py, kpis, py_kpis, yoy,
                 sel_airlines, sel_flight, sel_firma, top_n)

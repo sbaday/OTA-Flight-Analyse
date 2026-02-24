@@ -12,7 +12,8 @@ from src.ui.components import kpi_card, chart_info, apply_layout, section_title
 
 
 def render_tab1(fdf, df, _py, kpis, py_kpis, yoy, sel_airlines, sel_flight,
-                sel_firma, month_labels, all_months, py_s, py_e):
+                sel_firma, month_labels, all_months, py_s, py_e,
+                start_month, end_month):
     k  = kpis
     pk = py_kpis
     y  = yoy
@@ -36,7 +37,7 @@ def render_tab1(fdf, df, _py, kpis, py_kpis, yoy, sel_airlines, sel_flight,
     enf_k        = y['enf_k']
 
     from src.config.settings import TUFE_DB
-    tufe_end = TUFE_DB.get(list(month_labels.keys())[-1], 30.0)
+    tufe_end = TUFE_DB.get(end_month, 30.0)
 
     section_title("📊 Temel KPI'lar")
 
@@ -62,7 +63,7 @@ def render_tab1(fdf, df, _py, kpis, py_kpis, yoy, sel_airlines, sel_flight,
              f"{month_labels.get(py_s,'—')} – {month_labels.get(py_e,'—')}", yoy_color(nominal_yoy))
     kpi_card(c7,"💎 Reel Büyüme YoY", fmt_pct(reel_yoy, plus=True),
              f"((1+Nom)/(1+TÜFE%{tufe_end:.1f}))−1", yoy_color(reel_yoy))
-    kpi_card(c8,"🔥 TÜFE (Yıllık)", f"{tufe_end:.2f}%", f"{list(month_labels.values())[-1]} dönemi")
+    kpi_card(c8,"🔥 TÜFE (Yıllık)", f"{tufe_end:.2f}%", f"{month_labels.get(end_month,'?')} dönemi")
 
     st.markdown(""); st.markdown("---")
 
@@ -131,7 +132,7 @@ def render_tab1(fdf, df, _py, kpis, py_kpis, yoy, sel_airlines, sel_flight,
     st.markdown("---")
     section_title("📋 Dönem Karşılaştırma Tablosu")
     rows_yoy = []
-    lbl_cur = f"{month_labels.get(list(month_labels.keys())[0],'')}–{month_labels.get(list(month_labels.keys())[-1],'')}"
+    lbl_cur = f"{month_labels.get(start_month,'?')}–{month_labels.get(end_month,'?')}"
     lbl_py  = f"{month_labels.get(py_s,'—')}–{month_labels.get(py_e,'—')}"
     for lbl, cur, prev, fn in [
         ("Net Gelir (Op.Brüt)", total_gercek, py_gercek, lambda v: fmt_mil(v)),

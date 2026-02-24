@@ -131,23 +131,68 @@ def render_tab1(fdf, df, _py, kpis, py_kpis, yoy, sel_airlines, sel_flight,
 
     st.markdown("---")
     section_title("📋 Dönem Karşılaştırma Tablosu")
-    rows_yoy = []
-    lbl_cur = f"{month_labels.get(start_month,'?')}–{month_labels.get(end_month,'?')}"
-    lbl_py  = f"{month_labels.get(py_s,'—')}–{month_labels.get(py_e,'—')}"
-    for lbl, cur, prev, fn in [
-        ("Net Gelir (Op.Brüt)", total_gercek, py_gercek, lambda v: fmt_mil(v)),
-        ("Brüt Ciro",           total_brut,   py_brut,   lambda v: fmt_mil(v)),
-        ("Hizmet Tutarı",       total_hizmet, py_hizmet, lambda v: fmt_mil(v)),
-        ("Hizmet %",            hizmet_pct,   py_hizmet_pct, lambda v: f"{v:.2f}%"),
-        ("Toplam PNR",          total_pnr,    py_pnr,    lambda v: f"{v:,.0f}"),
-        ("Net Gelir/PNR",       per_pnr,      py_per_pnr,lambda v: fmt_mil(v)),
-    ]:
-        d = pct_delta(cur, prev)
-        rows_yoy.append({"Metrik": lbl, lbl_cur: fn(cur),
-                          lbl_py: fn(prev) if prev else "—",
-                          "Fark (%)": fmt_pct(d, plus=True),
-                          "📊": "🟢" if d and d>2 else ("🔴" if d and d<-2 else "🟡") if d else "—"})
-    st.dataframe(pd.DataFrame(rows_yoy), use_container_width=True, hide_index=True)
+
+    from src.core.engine import compute_kpis
+
+    # Dönem seçiciler
+    ca, cb = st.columns(2)
+    mid = max(0, len(all_months) // 2 - 1)
+    with ca:
+        st.markdown("**🔵 Baz Dönem**")
+        cc1, cc2 = st.columns(2)
+        baz_s = cc1.selectbox("Başlangıç", all_months, index=0,
+                               key="cmp_baz_s", format_func=lambda x: month_labels[x])
+        baz_e = cc2.selectbox("Bitiş", all_months, index=mid,
+                               key="cmp_baz_e", format_func=lambda x: month_labels[x])
+    with cb:
+        st.markdown("**🔴 Karşılaştırma Dönemi**")
+        cd1, cd2 = st.columns(2)
+        kar_s = cd1.selectbox("Başlangıç", all_months, index=min(mid + 1, len(all_months) - 1),
+                               key="cmp_kar_s", format_func=lambda x: month_labels[x])
+        kar_e = cd2.selectbox("Bitiş", all_months, index=len(all_months) - 1,
+                               key="cmp_kar_e", format_func=lambda x: month_labels[x])
+
+    # Seçilen dönemlere göre filtreleme (sidebar filtrelerini de uygula)
+    def _period_df(start, end):
+        d = df[(df['Ay_str'] >= start) & (df['Ay_str'] <= end)].copy()
+        if sel_airlines: d = d[d['Havayolu'].isin(sel_airlines)]
+        if sel_flight:   d = d[d['Uçuş Tipi'].isin(sel_flight)]
+        if sel_firma:    d = d[d['Kurumsal Firma'].isin(sel_firma)]
+        return d
+
+    baz_df = _period_df(baz_s, baz_e)
+    kar_df = _period_df(kar_s, kar_e)
+
+    if baz_df.empty or kar_df.empty:
+        st.warning("Seçilen dönemlerden biri boş — lütfen tarih aralığını kontrol edin.")
+    else:
+        bk = compute_kpis(baz_df)
+        kk = compute_kpis(kar_df)
+        baz_per_pnr = bk['total_gercek'] / bk['total_pnr'] if bk['total_pnr'] else 0
+        kar_per_pnr = kk['total_gercek'] / kk['total_pnr'] if kk['total_pnr'] else 0
+
+        lbl_baz = f"{month_labels.get(baz_s,'?')}–{month_labels.get(baz_e,'?')}"
+        lbl_kar = f"{month_labels.get(kar_s,'?')}–{month_labels.get(kar_e,'?')}"
+
+        rows = []
+        for lbl, bv, kv, fn in [
+            ("Net Gelir (Op.Brüt)", bk['total_gercek'], kk['total_gercek'], fmt_mil),
+            ("Brüt Ciro",           bk['total_brut'],   kk['total_brut'],   fmt_mil),
+            ("Hizmet Tutarı",       bk['total_hizmet'], kk['total_hizmet'], fmt_mil),
+            ("Hizmet %",            bk['hizmet_pct'],   kk['hizmet_pct'],   lambda v: f"{v:.2f}%"),
+            ("Toplam PNR",          bk['total_pnr'],    kk['total_pnr'],    lambda v: f"{int(v):,}"),
+            ("Net Gelir/PNR",       baz_per_pnr,        kar_per_pnr,        fmt_mil),
+        ]:
+            d = pct_delta(kv, bv)   # karşılaştırma / baz
+            rows.append({
+                "Metrik":      lbl,
+                f"🔵 {lbl_baz}": fn(bv),
+                f"🔴 {lbl_kar}": fn(kv),
+                "Fark (%)":    fmt_pct(d, plus=True),
+                "📊": ("🟢" if d and d > 2 else ("🔴" if d and d < -2 else "🟡")) if d else "—",
+            })
+        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+
 
     if nominal_yoy is not None and py_pnr and py_per_pnr:
         st.markdown("---")
